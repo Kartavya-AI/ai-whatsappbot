@@ -1,6 +1,8 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const { generateReplyFromGemini, processVoiceWithGemini } = require('./messengar.js'); // Custom Gemini function
 
+// Initialize WhatsApp client
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -9,59 +11,82 @@ const client = new Client({
     }
 });
 
-// Display QR code in terminal
+// Show QR code
 client.on('qr', (qr) => {
-    console.log('📲 Scan this QR code in WhatsApp:');
+    console.log('📲 Scan this QR code with WhatsApp:');
     qrcode.generate(qr, { small: true });
 });
 
-// Bot is ready
+// WhatsApp client ready
 client.on('ready', () => {
     console.log('✅ KartavyaAI WhatsApp Bot is ready!');
 });
 
-// Handle incoming messages
+// Handle messages from any number (text and voice)
 client.on('message', async (msg) => {
-    const incoming = msg.body.toLowerCase().trim();
-
-    if (incoming === '!ping') {
-        await msg.reply('pong 🏓');
-    } else if (incoming === 'hi' || incoming === 'hello') {
-        await msg.reply(
-            `👋 Hello! This is *KartavyaAI*, your AI & web solutions partner.\n\nType *menu* to explore what we offer.`
-        );
-    } else if (incoming === 'help' || incoming === 'menu') {
-        await msg.reply(
-            `🛠️ *KartavyaAI Services:*\n` +
-            `1. Custom AI Solutions 🤖\n` +
-            `2. Website & Web App Development 🌐\n` +
-            `3. Chatbot Integration 💬\n` +
-            `4. Automation & Workflow Tools ⚙️\n` +
-            `5. API & Backend Services 🔌\n\n` +
-            `Reply with a number (e.g., 1) to learn more.`
-        );
-    } else if (incoming === '1') {
-        await msg.reply(
-            `🤖 *Custom AI Solutions*\nWe build intelligent tools tailored to your business — from analytics to recommendation engines and process automation.`
-        );
-    } else if (incoming === '2') {
-        await msg.reply(
-            `🌐 *Web & App Development*\nWe design and develop responsive websites, dashboards, and web apps with modern tech stacks like React, Next.js, and Node.js.`
-        );
-    } else if (incoming === '3') {
-        await msg.reply(
-            `💬 *Chatbot Integration*\nWe create smart WhatsApp, Telegram, or website chatbots using GPT, LangChain, Dialogflow, and more.`
-        );
-    } else if (incoming === '4') {
-        await msg.reply(
-            `⚙️ *Automation Tools*\nWe automate repetitive business tasks using custom scripts, Zapier, or AI-driven workflow builders.`
-        );
-    } else if (incoming === '5') {
-        await msg.reply(
-            `🔌 *API & Backend Services*\nSecure and scalable APIs for mobile/web apps, integrated with databases, third-party services, and admin tools.`
-        );
-    } else {
-        await msg.reply("🤖 I'm not sure how to respond to that. Type *menu* to see available options.");
+    const sender = msg.from; // Format: '91xxxxxxxxxx@c.us'
+    
+    try {
+        // Handle voice messages - Direct processing with Gemini
+        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+            console.log(`📥 Voice message from ${sender}`);
+            
+            try {
+                const media = await msg.downloadMedia();
+                
+                // Process voice directly with Gemini (no transcription)
+                const reply = await processVoiceWithGemini(
+                    Buffer.from(media.data, 'base64'), 
+                    media.mimetype || 'audio/ogg',
+                    [] // Add chat history here if needed
+                );
+                
+                console.log(`🤖 Gemini voice reply: ${reply.reply}`);
+                await msg.reply(reply.reply);
+                
+            } catch (voiceErr) {
+                console.error(`❌ Voice processing failed: ${voiceErr.message}`);
+                await msg.reply("⚠️ Sorry, I couldn't process your voice message. Please try again or send a text message.");
+                return;
+            }
+        } 
+        // Handle text messages
+        else if (msg.body) {
+            const messageContent = msg.body.trim();
+            console.log(`📥 Text message from ${sender}: ${messageContent}`);
+            
+            const incoming = messageContent.toLowerCase();
+            
+            // Check if message is a greeting
+            const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'namaste'];
+            const isGreeting = greetings.some(greeting => incoming.includes(greeting));
+            
+            if (isGreeting) {
+                // Send personalized greeting for KartavyaAI
+                const greetingMessage = `Hi there! 👋 This is *KartavyaBot* from *KartavyaAI* – your AI and web solutions partner. How may I help you today?`;
+                await msg.reply(greetingMessage);
+                console.log(`✅ Sent greeting to ${sender}`);
+            } else {
+                // Generate response using Gemini for non-greeting messages
+                const reply = await generateReplyFromGemini(messageContent, []);
+                console.log(`🤖 Gemini text reply: ${reply.reply}`);
+                await msg.reply(reply.reply);
+            }
+        }
+        // Handle other media types
+        else if (msg.hasMedia) {
+            await msg.reply("📷 I can see you sent media, but I can only process text and voice messages at the moment.");
+            return;
+        }
+        // Handle empty messages
+        else {
+            await msg.reply("⚠️ I didn't receive any message content. Please try again.");
+            return;
+        }
+        
+    } catch (err) {
+        console.error(`❌ Reply failed: ${err.message}`);
+        await msg.reply("⚠️ Sorry, something went wrong while processing your message. Please try again.");
     }
 });
 
