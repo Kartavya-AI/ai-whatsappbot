@@ -93,9 +93,9 @@ client.on('ready', async () => {
 // Handle messages from any number (text and voice)
 client.on('message', async (msg) => {
     const sender = msg.from; // Format: '91xxxxxxxxxx@c.us'
-    
+
     try {
-        // Handle voice messages - You might want to implement voice processing later
+        // Handle voice messages
         if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
             console.log(`📥 Voice message from ${sender}`);
             await msg.reply("🎵 I can see you sent a voice message. Currently, I only process text messages. Please send your question as text.");
@@ -107,32 +107,21 @@ client.on('message', async (msg) => {
             const messageContent = msg.body.trim();
             console.log(`📥 Text message from ${sender}: ${messageContent}`);
             
-            const incoming = messageContent.toLowerCase();
-            
-            // Check if message is a greeting
-            const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'namaste'];
-            const isGreeting = greetings.some(greeting => incoming.includes(greeting));
-            
-            if (isGreeting) {
-                // Send personalized greeting for KartavyaAI
-                const greetingMessage = `Hi there! 👋 This is *KartavyaBot* from *KartavyaAI* – your AI and web solutions partner. How may I help you today?`;
-                await msg.reply(greetingMessage);
-                console.log(`✅ Sent greeting to ${sender}`);
-            } else {
-                // Show typing indicator
-                await msg.reply("🤖 Processing your question...");
-                
-                // Call FastAPI instead of Gemini
-                const apiResponse = await queryBotCrewAPI(messageContent, sender);
-                console.log(`🤖 API reply: ${apiResponse.result}`);
-                await msg.reply(apiResponse.result);
-            }
+            // Show typing/processing message
+            await msg.reply("🤖 Processing your question...");
+
+            // Call FastAPI instead of Gemini
+            const apiResponse = await queryBotCrewAPI(messageContent, sender);
+            console.log(`🤖 API reply: ${apiResponse.result}`);
+            await msg.reply(apiResponse.result);
         }
+
         // Handle other media types
         else if (msg.hasMedia) {
             await msg.reply("📷 I can see you sent media, but I can only process text messages at the moment.");
             return;
         }
+
         // Handle empty messages
         else {
             await msg.reply("⚠️ I didn't receive any message content. Please try again.");
@@ -144,6 +133,7 @@ client.on('message', async (msg) => {
         await msg.reply("⚠️ Sorry, something went wrong while processing your message. Please try again.");
     }
 });
+
 
 // Handle client disconnection
 client.on('disconnected', (reason) => {
