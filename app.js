@@ -1,9 +1,9 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
-
+require('dotenv').config(); // Load environment variables from .env file
 // FastAPI endpoint configuration
-const FASTAPI_BASE_URL = 'http://localhost:8000'; // Change this to your FastAPI server URL
+const FASTAPI_BASE_URL = process.env.FAST_API_BASE_URL || 'http://127.0.0.1:8000'; // Change this to your FastAPI server URL
 
 // Initialize WhatsApp client
 const client = new Client({
